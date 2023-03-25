@@ -1,0 +1,9 @@
+[submodule "external/pe-parse"]
+	path = external/pe-parse
+	url = https://github.com/trailofbits/pe-parse.git
+[submodule "external/spdlog"]
+	path = external/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "external/doctest"]
+	path = external/doctest
+	url = https://github.com/doctest/doctest.git
