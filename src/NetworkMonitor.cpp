@@ -6,6 +6,7 @@
 #include <linux/if_packet.h>
 
 #include <exception>
+#include <sstream>
 
 NetworkMonitor::NetworkMonitor(const std::string &ip_filter, SoftwareBusSubsystem &software_bus) {
     _ip_filter = ip_filter;
@@ -44,78 +45,96 @@ NetworkMonitor::~NetworkMonitor() {
 }
 
 bool NetworkMonitor::HasServerConnection() {
-    auto ps_result = subprocess::pipeline("ps -ef", "grep -v grep", "grep ffxiv_dx11.exe");
-    if (ps_result.length == 0) {
-        return false;
-    }
-
-    return false;
+    auto ss_result = subprocess::pipeline("ss -nap", "grep ESTAB", fmt::format("grep {}", _ip_filter));
+    return ss_result.length > 0;
 }
 
-bool NetworkMonitor::IpHeaderMatches(const struct ip *ip_header) {
+std::string NetworkMonitor::FindIpHeaderMatch(const struct ip *ip_header) {
     const std::string ip_src = inet_ntoa(ip_header->ip_src);
     const std::string ip_dst = inet_ntoa(ip_header->ip_dst);
 
-    return ip_src.rfind(_ip_filter) == 0 || ip_dst.rfind(_ip_filter) == 0;
+    if (ip_src.rfind(_ip_filter) == 0) {
+        return ip_src;
+    } else if (ip_dst.rfind(_ip_filter) == 0) {
+        return ip_dst;
+    } else {
+        return "";
+    }
 }
 
 const struct ip *NetworkMonitor::FindIpHeader(const void *raw_packet, size_t size)
 {
-    if (NetworkMonitor::IpHeaderMatches((const struct ip *)raw_packet)) {
+    if (NetworkMonitor::FindIpHeaderMatch((const struct ip *)raw_packet) != "") {
         return (const struct ip *)raw_packet;
     }
 
     raw_packet = (const void *)(((const uint8_t *)raw_packet) + NetworkMonitor::ANY_HEADER_SIZE);
-    if (NetworkMonitor::IpHeaderMatches((const struct ip *)raw_packet)) {
+    if (NetworkMonitor::FindIpHeaderMatch((const struct ip *)raw_packet) != "") {
         return (const struct ip *)raw_packet;
     }
 
     return NULL;
 }
 
+const struct tcphdr *NetworkMonitor::FindTcpHeader(const struct ip *ip_packet) {
+    if (ip_packet->ip_p != IPPROTO_TCP) {
+        return NULL;
+    }
+
+    return (const struct tcphdr *)((const uint8_t *)(ip_packet) + ip_packet->ip_hl);
+}
+
+const void *NetworkMonitor::FindTcpPayload(const struct tcphdr *tcp_packet) {
+    return (const void *)(((const uint8_t*)tcp_packet) + (sizeof(uint32_t) * tcp_packet->th_off));
+}
+
+void NetworkMonitor::UpdateServerConnectionStatus() {
+    bool server_alive = HasServerConnection();
+    if (_connected && !server_alive) {
+        spdlog::info("Disconnected from {}", _ip_match);
+    }
+
+    if (!_connected && server_alive) {
+        spdlog::info("Connected to {}", _ip_match);
+    }
+    _connected = server_alive;
+}
+
+void NetworkMonitor::ProcessPcapPacket(const struct pcap_pkthdr *header, const uint8_t *raw_packet) {
+    size_t raw_packet_size = header->caplen;
+    if (raw_packet == NULL) {
+        return;
+    }
+
+    if (raw_packet_size < NetworkMonitor::REQUIRED_HEADER_SIZE) {
+        spdlog::info("Packet size {} is too small to parse (required size {})",
+            raw_packet_size, NetworkMonitor::REQUIRED_HEADER_SIZE);
+        return;
+    }
+
+    const struct ip *ip_header = FindIpHeader(raw_packet, raw_packet_size);
+    if (ip_header == NULL) {
+        return;
+    }
+    _ip_match = FindIpHeaderMatch(ip_header);
+
+    const struct tcphdr *tcp_header = FindTcpHeader(ip_header);
+    if (tcp_header == NULL) {
+        return;
+    }
+
+    const void *payload = FindTcpPayload(tcp_header);
+    size_t payload_size = raw_packet_size - ((size_t)payload - (size_t)raw_packet);
+    _software_bus->Publish("/net/tcp_payloads", payload, payload_size);
+
+    spdlog::info("Got payload of size {}, last byte {}", payload_size, +(((const uint8_t *)payload)[raw_packet_size - 1]));
+}
+
 void NetworkMonitor::ThreadFunction() {
-    bool prev_server_alive = false;
-
     while (_running) {
-        bool server_alive = HasServerConnection();
-        if (prev_server_alive && !server_alive) {
-            spdlog::info("Disconnected from {}", _ip_filter);
-        }
-
-        if (!prev_server_alive && server_alive) {
-            spdlog::info("Connected to {}", _ip_filter);
-        }
-
-        prev_server_alive = server_alive;
-
         struct pcap_pkthdr header;
         const uint8_t *raw_packet = pcap_next(_pcap, &header);
-        if (raw_packet == NULL) {
-            continue;
-        }
-
-        spdlog::info("Captured packet of length {} from {}.x", header.caplen, _ip_filter);
-        size_t raw_packet_size = header.caplen;
-
-        if (raw_packet_size < NetworkMonitor::REQUIRED_HEADER_SIZE) {
-            spdlog::info("Packet size {} is too small to parse (required size {})",
-                raw_packet_size, NetworkMonitor::REQUIRED_HEADER_SIZE);
-            continue;
-        }
-
-        const struct ip *ip_header = FindIpHeader(raw_packet, raw_packet_size);
-        if (ip_header == NULL) {
-            continue;
-        }
-
-        spdlog::info("DANK MEMES");
-
-        // const struct tcp_hdr *tcp_header = FindTcpHeader(ip_header);
-        // if (tcp_header == NULL) {
-        //     continue;
-        // }
-
-        // const void *payload = FindTcpPayload(tcp_header);
-        // size_t payload_size = FindTcpPayloadSize(tcp_header);
+        ProcessPcapPacket(&header, raw_packet);
+        UpdateServerConnectionStatus();
     }
 }
