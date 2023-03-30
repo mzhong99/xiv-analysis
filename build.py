@@ -5,8 +5,18 @@ import argparse
 
 import sys
 import os
+import shutil
 
 import multiprocessing
+
+def find_file(name, path):
+    for root, dirs, files in os.walk(path):
+        if name in files:
+            result = os.path.join(root, name)
+            print("Use oodle library {}".format(result))
+            return result
+    print("Could not find a valid {} in {} - exiting...".format(name, path))
+    exit()
 
 @contextlib.contextmanager
 def push_directory(new_dir: str, create_if_absent=True):
@@ -35,14 +45,18 @@ def main(args):
     parser.add_argument("-u", "--unittest", action="store_true", help="Build and run unit tests")
     parser.add_argument("-d", "--directory", default=default_build_directory, help="Directory to build project")
     parser.add_argument("-j", "--jobs", default=str(multiprocessing.cpu_count()), help="Parallel compilation job count")
-    parser.add_argument("-t", "--tags", action="store_true", help="Build ctags database")
 
     parsed_args = vars(parser.parse_args())
 
-    if parsed_args["tags"]:
+    with push_directory(parsed_args["directory"]):
         run_and_check("ctags -R --c++-kinds=+p --fields=+iaS --extras=+q --language-force=C++ .")
 
-    with push_directory(parsed_args["directory"]):
+        oo2core_dll = find_file("oo2core_9_win64.dll", os.path.expanduser("~"))
+        oo2net_dll = find_file("oo2net_9_win64.dll", os.path.expanduser("~"))
+
+        run_and_check("cp {} .".format(oo2core_dll))
+        run_and_check("cp {} .".format(oo2net_dll))
+
         run_and_check("cmake ..")
 
         if parsed_args["clean"]:

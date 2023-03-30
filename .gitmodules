@@ -7,3 +7,9 @@
 [submodule "external/doctest"]
 	path = external/doctest
 	url = https://github.com/doctest/doctest.git
+[submodule "external/libpcap"]
+	path = external/libpcap
+	url = https://github.com/the-tcpdump-group/libpcap.git
+[submodule "external/cpp-subprocess"]
+	path = external/cpp-subprocess
+	url = https://github.com/arun11299/cpp-subprocess.git
