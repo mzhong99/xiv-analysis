@@ -44,13 +44,13 @@ void TestConsumerSubsystemCallback(void *context, const SoftwareBusMessage &mess
     reinterpret_cast<TestConsumerSubsystem *>(context)->ConsumeMessage(message);
 }
 
-TEST_CASE("Init and teardown") {
+TEST_CASE("SoftwareBusSubsystem_InitTeardown") {
     SoftwareBusSubsystem software_bus;
     software_bus.Init();
     software_bus.Teardown();
 }
 
-TEST_CASE("Single producer, multi-consumer") {
+TEST_CASE("SoftwareBusSubsystem_SingleProducerMultiConsumer") {
     SoftwareBusSubsystem software_bus;
     software_bus.Init();
 

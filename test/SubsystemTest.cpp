@@ -45,7 +45,7 @@ class ThreadedSubsystem : public Subsystem<ThreadedSubsystem> {
     }
 };
 
-TEST_CASE("Non-threaded subsystem") {
+TEST_CASE("Subsystem_NonThreaded") {
     NonThreadedSubsystem subsystem;
 
     subsystem.Init(1, 2, 3);
@@ -61,7 +61,7 @@ TEST_CASE("Non-threaded subsystem") {
     REQUIRE(subsystem._c == 0);
 }
 
-TEST_CASE("Threaded subsystem") {
+TEST_CASE("Subsystem_Threaded") {
     ThreadedSubsystem subsystem;
 
     subsystem.Init(5);

@@ -37,19 +37,22 @@ def run_and_check(command: str, expect=0):
         exit(rc)
 
 def main(args):
-    default_build_directory = os.path.join(os.path.dirname(os.path.abspath(__file__)), "artifacts")
+    repository_root = os.path.dirname(os.path.abspath(__file__))
+    default_build_directory = os.path.join(repository_root, "artifacts")
 
     parser = argparse.ArgumentParser(args)
 
     parser.add_argument("-c", "--clean", action="store_true", help="Clean before building")
     parser.add_argument("-u", "--unittest", action="store_true", help="Build and run unit tests")
+    parser.add_argument("-m", "--memtest", action="store_true", help="Memory leak detection (unit testing)")
     parser.add_argument("-d", "--directory", default=default_build_directory, help="Directory to build project")
     parser.add_argument("-j", "--jobs", default=str(multiprocessing.cpu_count()), help="Parallel compilation job count")
 
     parsed_args = vars(parser.parse_args())
+    run_and_check("ctags -R --c++-kinds=+p --fields=+iaS --extras=+q --language-force=C++ {}".format(repository_root))
 
     with push_directory(parsed_args["directory"]):
-        run_and_check("ctags -R --c++-kinds=+p --fields=+iaS --extras=+q --language-force=C++ .")
+        run_and_check("cd .. && git submodule update --init --recursive")
 
         oo2core_dll = find_file("oo2core_9_win64.dll", os.path.expanduser("~"))
         oo2net_dll = find_file("oo2net_9_win64.dll", os.path.expanduser("~"))
@@ -64,7 +67,10 @@ def main(args):
 
         run_and_check("make -j{}".format(parsed_args["jobs"]))
         if parsed_args["unittest"]:
-            run_and_check("{} --duration".format(os.path.join(parsed_args["directory"], "unittests")))
+            memtest_util = ""
+            if parsed_args["memtest"]:
+                memtest_util = "valgrind"
+            run_and_check("{} {} --duration".format(memtest_util, os.path.join(parsed_args["directory"], "unittests")))
 
 if __name__ == "__main__":
     main(sys.argv)

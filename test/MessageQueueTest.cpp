@@ -5,7 +5,7 @@
 #include <vector>
 #include <set>
 
-TEST_CASE("Single-threaded testing") {
+TEST_CASE("MessageQueue_SingleThreaded") {
     int result;
     MessageQueue<int> mqueue;
 
@@ -44,7 +44,7 @@ TEST_CASE("Multi-threaded testing") {
     consumer.join();
 }
 
-TEST_CASE("Multi-threaded testing, multiple consumer, single producer") {
+TEST_CASE("MessageQueue_MultiThreaded") {
     MessageQueue<int> mqueue;
     std::set<int> d1, d2;
 

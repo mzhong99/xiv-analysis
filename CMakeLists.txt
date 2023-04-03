@@ -16,6 +16,7 @@ include_directories(src)
 include_directories(src/utils)
 
 set(COMMON_SRC
+    # src/utils/MappedMemory.cpp
     src/utils/SoftwareBusSubsystem.cpp
     src/NetworkMonitor.cpp
     # src/Oodle.cpp
@@ -26,6 +27,7 @@ set(TEST_SRC
     test/MessageQueueTest.cpp
     test/SubsystemTest.cpp
     test/SoftwareBusSubsystemTest.cpp
+    test/ListTest.cpp
 )
 
 add_executable(xiv-analysis src/Main.cpp ${COMMON_SRC})
