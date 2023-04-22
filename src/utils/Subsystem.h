@@ -31,7 +31,7 @@ class Subsystem {
         }
     }
 
-    void Teardown() {
+    virtual void Teardown() {
         _running = false;
 
         if (_has_parallel_thread) {

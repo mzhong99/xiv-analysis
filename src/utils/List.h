@@ -21,9 +21,7 @@ class List {
         T *Entry() const { return _entry; }
 
         Node(T *entry = nullptr): _entry(entry) {}
-        ~Node() {
-            UnlinkFromPeers();
-        }
+        ~Node() { UnlinkFromPeers(); }
 
         bool PointsToSelf() const {
             return _next == this && _prev == this;
@@ -50,6 +48,11 @@ class List {
         }
 
         friend class List;
+    };
+
+    class Insertable {
+        T _data;
+        Node _node;
     };
 
  private:

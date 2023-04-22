@@ -27,6 +27,7 @@ set(TEST_SRC
     test/MessageQueueTest.cpp
     test/SubsystemTest.cpp
     test/SoftwareBusSubsystemTest.cpp
+    test/TcpSubsystemTest.cpp
     test/ListTest.cpp
 )
 

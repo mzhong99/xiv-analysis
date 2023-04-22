@@ -10,17 +10,23 @@ void TcpClientSubsystem::ThreadFunction() {
 
     uint8_t rx_buffer[TcpClientSubsystem::RX_BUFSIZE];
     while (_running) {
-
         memset(rx_buffer, 0, sizeof(rx_buffer));
         ssize_t rx_count = read(_sockfd, rx_buffer, TcpClientSubsystem::RX_BUFSIZE);
         if (rx_count == 0) {
             break;
         }
+
+        std::lock_guard(_target_endpoints_lock) lock_acquire;
+        for (const std::string &endpoint : _target_endpoints) {
+            _software_bus.Publish(endpoint, rx_buffer, rx_count);
+        }
     }
 }
 
-void TcpClientSubsystem::Init(std::string ip_addr, uint16_t port, SoftwareBusSubsystem &software_bus) {
+void TcpClientSubsystem::Init(
+    const std::string &ip_addr, uint16_t port, const std::string &endpoint, SoftwareBusSubsystem &software_bus) {
     _software_bus = &software_bus;
+    _endpoint = endpoint;
 
     _sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (_sockfd == -1) {
@@ -41,9 +47,18 @@ void TcpClientSubsystem::Init(std::string ip_addr, uint16_t port, SoftwareBusSub
     Subsystem<TcpClientSubsystem>::Init();
 }
 
+void TcpClientSubsystem::InitFromServer(int sockfd, SoftwareBusSubsystem &software_bus) {
+    _software_bus = &software_bus;
+    _sockfd = sockfd;
+
+    StartWorkerThread();
+    Subsystem<TcpClientSubsystem>::Init();
+}
+
 void TcpClientSubsystem::Teardown() {
     if (_sockfd > 0) {
         close(_sockfd);
     }
+
     Subsystem<TcpClientSubsystem>::Teardown();
 }
